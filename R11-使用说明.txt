@@ -1,0 +1,95 @@
+OptiScaler R11 — DLSS 帧生成模型 A/B/C
+构建标识：0.2.0-order-cn-r11 / 20261016_R11
+
+本版新增
+
+在“超分与帧生成”中新增“DLSS 帧生成模型”：
+默认：跟随游戏和 NVIDIA App；不覆盖预设读取。
+A：标准模型。
+B：界面重建模型。效果取决于游戏提供的 HUDless、UI 等输入。
+C：310.9.16 新增的轻量性能模式，有画质与性能取舍。
+
+模型更改后必须保存并完全重启游戏。不会在运行中重建已缓存的帧生成内核。
+选择独立于 2X–6X 倍率；保留 R10 的 RTX 40 倍率解锁及 RenoDX 时序修复。
+原生游戏帧生成与 OptiScaler 自身 DLSSG 输出都经过 provider 预设读取入口。
+不写入全局或单个游戏的 NVIDIA 驱动配置，不需要管理员权限。
+未知版本、接口不匹配或不支持 C 的旧 provider 不会冒充切换成功。
+
+文件与替换
+
+1. 完全退出游戏，备份原有代理 DLL、nvngx_dlssg.dll 和 OptiScaler 的 streamline 文件夹。
+2. 用本包 OptiScaler.dll 替换原 DLL。若原 DLL 名为 winmm.dll、dxgi.dll 或 version.dll，
+   新 DLL 也使用同一个名称，避免同时放置两份 OptiScaler 代理。
+3. 本包 OptiScaler/streamline 中五个 sl.* 文件来自同一套 2.14.16.0 发布包，
+   nvngx_dlssg.dll 为 310.9.16.0。将整套文件替换到自己当前使用的 OptiScaler 运行库目录。
+   默认路径是“游戏主程序目录/OptiScaler/streamline”。如果 [Libraries] OptiDllPath
+   已自定义，使用“OptiDllPath/streamline”。不要另外新增第二套搜索路径。
+   sl.common、sl.dlss_g、sl.pcl、sl.reflex 文件版本为 2.14.16.0；
+   该发布包的 sl.interposer 自身文件版本仍是 2.14.1.0，这是原始包的情况。
+4. 使用游戏原生帧生成时，还需用 native-dlssg/nvngx_dlssg.dll 替换游戏实际加载的那份
+   nvngx_dlssg.dll，例如燕云的 Engine/Binaries/Win64r/Streamline/nvngx_dlssg.dll。
+   Win64rh 若是单独的安装文件，也需对应替换；以本次启动日志中的实际加载路径为准。
+   无需仅为了模型切换而替换游戏自带的整套 sl.* 文件。
+5. 保留自己的 OptiScaler.ini；不要用 OptiScaler.ini.example 覆盖现有设置。
+
+配置方法
+
+在原有 [DLSSG] 小节新增一行（不要重复创建同名小节）：
+ModelPreset=3
+
+auto 或 0 = 跟随游戏/驱动，1 = A，2 = B，3 = C。
+也可以在面板中选择并使用原来的“保存设置”，然后重启游戏。
+AdaMfgUnlock、AdaBlackwellKernels、InterpolationCount、OverrideInterpolationCount
+继续使用原来的设置。多帧倍率与模型切换分开控制。
+
+使用游戏原生帧生成时，保留原来已经正常工作的 FGInput/FGOutput 配置，
+不需要为了选择模型而启用 OptiScaler 的帧生成总开关。
+若 NVIDIA App 的倍率覆盖之前会覆盖面板倍率，继续关闭该倍率覆盖；
+本次进程内模型选择不会更改 NVIDIA App 的倍率设置。
+
+如何确认生效
+
+菜单“运行库读取的预设”表示 hook 实际收到并返回的预设值；
+“更改待生效”表示需保存并重启，“等待读取”不等于模型已经运行。
+日志搜索“DLSSG preset”：
+- provider path：处理的是哪一份 DLL；包括游戏、OptiScaler 和 NGX OTA 副本。
+- hook 0：对应读取入口安装成功。
+- selected C, effective C, C supported true：当前 provider 支持并接收 C。
+- read C (local override: true...)：provider 实际读到了 C。
+- NOT applied：该副本没有匹配验证过的接口，未应用覆盖。
+再搜索 MFG unlock，确认两处倍率门槛成功，且 temporal correction applied。
+上述“读取”证据不替代 GPU 图像/帧率验证；可配合 NVIDIA DLSS 指示器查看 Full/Lite 模式。
+
+验证范围与限制
+
+构建环境为 AMD 显卡，未执行 RTX 40 游戏 GPU 测试。
+已验证两个真实 NVIDIA provider（310.9.0 与 310.9.16）：
+- 唯一预设入口及函数展开表定位。
+- Detours 入口安装、A/B/C 数值转发及移除后原始字节恢复。
+- 两处 MFG 门槛各唯一匹配。
+- 每份 provider 的 8 个时序描述符均成功重建、重定向、恢复。
+- 新 DLL 的 NVIDIA Authenticode 签名有效。
+这证明本版接口及 R10 补丁与新 DLL 布局兼容；游戏内稳定性、旧驱动兼容性与性能仍需实测。
+没有把 310.9.16 对任意旧驱动的可用性视为已验证结果。
+R10 原有的 NR、多层计算及 Fence 回收路径保持不变；本次不包含照相模式掉帧修复。
+
+版本与来源
+
+OptiScaler 源码基于本地 R10，本版未整库合并上游 master。
+上游对照：https://github.com/optiscaler/OptiScaler
+模型入口参考：https://github.com/dashdogy/RTX40MFG-Unlock
+参考提交：2b52823e3769c31cf52d3b368c6963cff8fc5344
+涉及 dlssg_preset、dlssg_preset_policy、dlssg_provider_policy；保留 MIT 版权声明。
+RenoDX 对照：https://github.com/mavismmg/MFGAdaUnlock-RenoDx
+原有 Aurora 与 RenoDX 1.0 多帧实现未替换为另一套内核方案。
+预设值对照：https://github.com/Orbmu2k/nvidiaProfileInspector/blob/master/nvidiaProfileInspector/CustomSettingNames.xml
+
+新版 NVIDIA 原始文件由 RHI 仓库提供（社区分发，不是 NVIDIA 官方下载站）：
+https://github.com/RankFTW/rhi-repo/releases/tag/dlssg-310.9.16
+https://github.com/RankFTW/rhi-repo/releases/tag/streamline-2.14.16.0
+下载包哈希与 GitHub 发布资产一致，DLL 的 NVIDIA 数字签名已验证；未修改磁盘上的 NVIDIA DLL。
+nvngx_dlssg.dll SHA256:
+CADEE1AA6DB3907BABDC3285DA2AEBC4553D92B89C38BA3EAE8ABD8BBA1BEA72
+
+许可：OptiScaler 为 GPL-3.0；NVIDIA 文件保留 NVIDIA 原有许可证；
+参考项目的 MIT 许可见 LICENSE-dashdogy.txt。完整文件校验见 SHA256SUMS.txt。

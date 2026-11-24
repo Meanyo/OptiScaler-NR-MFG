@@ -155,9 +155,9 @@ void RenderMenu(Config* config, float menuResScale)
         if (ImGui::Combo("NR 运行库版本###NR model library", &library, libraries, IM_ARRAYSIZE(libraries)))
             config->DlssNrModelLibrary = (unsigned int) library;
         HelpMarker("这是两份独立的 NR 运行库，不是下方的模型预设。可在启用 NR 前选择，也可运行中切换；切换在下一次 NR 执行时重建全部 NR 层并重置历史，可能短暂停顿。旧模块暂不卸载，以保护在途 GPU 工作。保存设置可记住选择。");
-        ImGui::TextWrapped("模型文件：%s", ModelFileName());
+        ImGui::TextWrapped("模型位置：%s", library == 1 ? "OptiScaler/NR-310.9.16/nvngx_dlssnr.dll" : "插件或游戏目录中的 nvngx_dlssnr.dll");
         if (!FindSelectedModel())
-            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.25f, 1.0f), "未找到所选模型，请放在插件或游戏目录中。");
+            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.25f, 1.0f), "未找到所选模型，请按上方目录放置。");
         if (!FindModelFile(ModelForwarderName()))
             ImGui::TextWrapped("缺少配套转发库：%s", ModelForwarderName());
 

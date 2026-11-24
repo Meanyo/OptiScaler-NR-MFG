@@ -10,5 +10,12 @@ foreach ($id in 1, 2) {
 }
 & cl.exe /nologo /EHsc /MD $source "/Fo:$out\nr-runtime-test.obj" "/Fe:$out\nr-runtime-test.exe"
 if ($LASTEXITCODE -ne 0) { throw 'Runtime test compilation failed' }
-& "$out\nr-runtime-test.exe" "$out\nvngx.dll_dlssnr.dll" "$out\nvngx.dll_dlssnr_310_9_16.dll" "$out\mock-nr-1.dll" "$out\mock-nr-2.dll"
+$old = Join-Path $out 'nr-test-old'
+$new = Join-Path $out 'nr-test-new'
+New-Item -ItemType Directory -Path $old,$new -Force | Out-Null
+Copy-Item "$out\nvngx.dll_dlssnr.dll" "$old\nvngx.dll_dlssnr.dll" -Force
+Copy-Item "$out\OptiScaler\NR-310.9.16\nvngx.dll_dlssnr.dll" "$new\nvngx.dll_dlssnr.dll" -Force
+Copy-Item "$out\mock-nr-1.dll" "$old\nvngx_dlssnr.dll" -Force
+Copy-Item "$out\mock-nr-2.dll" "$new\nvngx_dlssnr.dll" -Force
+& "$out\nr-runtime-test.exe" "$old\nvngx.dll_dlssnr.dll" "$new\nvngx.dll_dlssnr.dll" "$old\nvngx_dlssnr.dll" "$new\nvngx_dlssnr.dll"
 if ($LASTEXITCODE -ne 0) { throw 'Runtime isolation test failed' }

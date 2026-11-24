@@ -413,7 +413,7 @@ bool LoadForwarder()
     if (g_vk.forwarder != nullptr)
         return g_vk.create != nullptr;
 
-    auto path = FindModelFile(ModelForwarderName(g_vk.modelLibrary));
+    auto path = FindModelFile(ModelForwarderName(), g_vk.modelLibrary);
 
     if (!path.has_value())
     {
@@ -421,9 +421,7 @@ bool LoadForwarder()
         return false;
     }
 
-    g_vk.forwarder = GetModuleHandleW(path->wstring().c_str());
-    if (!g_vk.forwarder)
-        g_vk.forwarder = LoadLibraryW(path->wstring().c_str());
+    g_vk.forwarder = LoadModelForwarder(*path);
 
     if (g_vk.forwarder == nullptr)
     {
@@ -547,7 +545,7 @@ void EvaluateAfterUpscaleVk(VkCommandBuffer cmdBuffer, NVSDK_NGX_Parameter* para
         g_vk.reason = "";
         g_vk.reset = true;
         g_vk.modelLibrary = requestedModel;
-        LOG_INFO("DLSS-NR Vulkan runtime selected: {}", ModelFileName(g_vk.modelLibrary));
+        LOG_INFO("DLSS-NR Vulkan runtime slot {} selected", g_vk.modelLibrary);
     }
 
     if (g_vk.failed)

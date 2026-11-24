@@ -87,10 +87,13 @@ Get-Item -LiteralPath "$build\OptiScaler.dll" | Select-Object FullName,Length
 Get-FileHash -LiteralPath "$build\OptiScaler.dll" -Algorithm SHA256
 
 # R12: independent forwarder identities isolate the two cached NR runtime modules.
-Invoke-Rsp 'cl.exe' 'nr-forwarder-compile' @('/nologo','/c','/O2','/MD','/EHsc','/std:c++17',
+Invoke-Rsp 'cl.exe' 'nr-forwarder-compile' @('/nologo','/c','/O2','/MT','/EHsc','/std:c++17',
     "/Fo`"$build\nr-forwarder.obj`"", 'dlssnr\forwarder\dlssnr_forwarder.cpp')
 Invoke-Rsp 'link.exe' 'nr-forwarder-link' @('/nologo','/DLL','/MACHINE:X64',
     "/OUT:`"$build\nvngx.dll_dlssnr.dll`"", "/IMPLIB:`"$build\nr-forwarder.lib`"",
     "`"$build\nr-forwarder.obj`"", 'kernel32.lib', 'd3d12.lib')
-Copy-Item -LiteralPath "$build\nvngx.dll_dlssnr.dll" -Destination "$build\nvngx.dll_dlssnr_310_9_16.dll" -Force
+New-Item -ItemType Directory -Path "$build\OptiScaler\NR-310.9.16" -Force | Out-Null
+Copy-Item -LiteralPath "$build\nvngx.dll_dlssnr.dll" -Destination "$build\OptiScaler\NR-310.9.16\nvngx.dll_dlssnr.dll" -Force
 Copy-Item -LiteralPath "$build\OptiScaler.dll" -Destination "$build\OptiScaler-NR-MFG-R12.dll" -Force
+
+Copy-Item -LiteralPath "$build\OptiScaler.dll" -Destination "$build\OptiScaler-NR-MFG-R12-directory.dll" -Force

@@ -482,7 +482,7 @@ bool EnsureForwarder()
 
     // Beside OptiScaler first, then beside the executable: someone dropping this into a game folder may
     // reasonably put it in either place.
-    auto found = DlssNr::FindModelFile(DlssNr::ModelForwarderName(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel()));
+    auto found = DlssNr::FindModelFile(DlssNr::ModelForwarderName(), g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
 
     if (!found.has_value())
     {
@@ -494,9 +494,7 @@ bool EnsureForwarder()
 
     // FindFilePath hands back the file itself, not the directory holding it.
     const auto path = found.value();
-    g_nr.forwarder = GetModuleHandleW(path.wstring().c_str());
-    if (!g_nr.forwarder)
-        g_nr.forwarder = LoadLibraryW(path.wstring().c_str());
+    g_nr.forwarder = DlssNr::LoadModelForwarder(path);
 
     if (g_nr.forwarder == nullptr)
     {
@@ -1683,7 +1681,7 @@ void DlssNr_Dx12::Dispatch(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* c
         g_nr.reset = true;
         g_nr.pendingTuning = false;
         g_nr.modelLibrary = requestedModel;
-        LOG_INFO("DLSS-NR runtime selected: {} (rebuilding all layers)", DlssNr::ModelFileName(g_nr.modelLibrary));
+        LOG_INFO("DLSS-NR runtime slot {} selected (rebuilding all layers)", g_nr.modelLibrary);
     }
 
     if (g_nr.failed || cmdList == nullptr || colour == nullptr || depth == nullptr ||

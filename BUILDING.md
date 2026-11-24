@@ -41,7 +41,7 @@ pwsh -File ./test-provider.ps1 -Providers 'D:\runtime\nvngx_dlssg.dll'
 
 ## 运行依赖
 
-NR 使用的 NVIDIA 模型 DLL 和 forwarder、DLSS SR / RR / FG、Streamline、XeSS / FSR 运行库需要按所用功能另外准备。NR forwarder 工程位于 `OptiScaler/dlssnr/forwarder`；R12 起根目录 `build.ps1` 同时编译它，并输出两个隔离的 DLL 文件名。不要把个人游戏目录或 NVIDIA 缓存目录提交到仓库。
+NR 使用的 NVIDIA 模型 DLL 和 forwarder、DLSS SR / RR / FG、Streamline、XeSS / FSR 运行库需要按所用功能另外准备。NR forwarder 工程位于 `OptiScaler/dlssnr/forwarder`；R12 起根目录 `build.ps1` 同时编译它，并输出两个隔离目录中的同名 DLL。不要把个人游戏目录或 NVIDIA 缓存目录提交到仓库。
 
 原有 `package_release.ps1` 为上游历史打包脚本，默认路径和版本不适合作为本分支 R11 发布流程；发布前请按本分支说明单独整理输出。
 
@@ -51,6 +51,6 @@ NR 使用的 NVIDIA 模型 DLL 和 forwarder、DLSS SR / RR / FG、Streamline、
 
 ## R12 输出与测试
 
-构建还会输出 `build/OptiScaler-NR-MFG-R12.dll`（主 DLL 的版本命名副本）、`build/nvngx.dll_dlssnr.dll` 和 `build/nvngx.dll_dlssnr_310_9_16.dll`。安装时按原注入方式重命名主 DLL，模型文件命名和运行中切换限制见 R12 使用说明。
+构建还会输出 `build/OptiScaler-NR-MFG-R12.dll`（主 DLL 的版本命名副本），另有 `build/OptiScaler-NR-MFG-R12-directory.dll`、`build/nvngx.dll_dlssnr.dll` 和 `build/OptiScaler/NR-310.9.16/nvngx.dll_dlssnr.dll`。安装时按原注入方式重命名主 DLL，模型文件命名和运行中切换限制见 R12 使用说明。
 
-`pwsh -File ./test-nr-runtime.ps1` 使用两份模拟模型验证真实转发库的 D3D12/Vulkan 隔离、切回与旧实例释放，不初始化 NVIDIA 模型或 GPU。
+`pwsh -File ./test-nr-runtime.ps1` 使用两份模拟模型验证真实转发库的 不同目录同名 DLL 的 D3D12/Vulkan 隔离、切回与旧实例释放，不初始化 NVIDIA 模型或 GPU。

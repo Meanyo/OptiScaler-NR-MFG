@@ -2,7 +2,7 @@
 #include "DlssNrFeature_Vk.h"
 
 #include "DlssNr.h"
-#include "NrModelSelection.h"
+#include "NrModelFiles.h"
 #include "DlssNr_ExposureScan.h"
 
 
@@ -150,16 +150,15 @@ void RenderMenu(Config* config, float menuResScale)
                        "\n  nvngx.dll_dlssnr.dll   the forwarder (~13 KB) -- ships in this package"
                        "\nUndocumented and driven directly, so none of this is officially supported.");
 
-        int library = (int) SelectedModel();
-        static const char* libraries[] = { "默认文件 / 旧版 NR", "新版 NR 310.9.16" };
-        if (ImGui::Combo("NR 运行库版本###NR model library", &library, libraries, IM_ARRAYSIZE(libraries)))
-            config->DlssNrModelLibrary = (unsigned int) library;
-        HelpMarker("这是两份独立的 NR 运行库，不是下方的模型预设。可在启用 NR 前选择，也可运行中切换；切换在下一次 NR 执行时重建全部 NR 层并重置历史，可能短暂停顿。旧模块暂不卸载，以保护在途 GPU 工作。保存设置可记住选择。");
-        ImGui::TextWrapped("模型位置：%s", library == 1 ? "OptiScaler/NR-310.9.16/nvngx_dlssnr.dll" : "插件或游戏目录中的 nvngx_dlssnr.dll");
-        if (!FindSelectedModel())
-            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.25f, 1.0f), "未找到所选模型，请按上方目录放置。");
-        if (!FindModelFile(ModelForwarderName()))
-            ImGui::TextWrapped("缺少配套转发库：%s", ModelForwarderName());
+        static const char* nrPresetNames[] = { "自动（模型默认）", "标准模型（Preset 1）", "轻量模型（Preset 2）" };
+        int preset = (int) config->DlssNrPreset.value_or_default();
+        if (ImGui::Combo("NR 模型###Model preset", &preset, nrPresetNames, IM_ARRAYSIZE(nrPresetNames)))
+            config->DlssNrPreset = (uint32_t) preset;
+        HelpMarker("使用同一份新版 310.9.16 模型 DLL。标准和轻量分别对应 Preset 1 和 2；自动跟随模型默认。可在启用 NR 前选择，也可运行中切换；切换会重建全部 NR 层并重置历史，可能短暂停顿。40 系显卡需使用 Ada 专用模型补丁。保存设置可记住选择。");
+        if (!FindNrModelFile())
+            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.25f, 1.0f), "缺少 nvngx_dlssnr.dll，请放到插件或游戏目录。");
+        if (!FindNrFile("nvngx.dll_dlssnr.dll"))
+            ImGui::TextWrapped("缺少配套转发库：nvngx.dll_dlssnr.dll");
 
         int order = config->DlssNrAfterUpscale.value_or_default() ? 1 : 0;
         static const char* orderNames[] = {
@@ -495,15 +494,6 @@ void RenderMenu(Config* config, float menuResScale)
         HelpMarker("用于观察下方预设、风格、内部强度、局部结构、局部色调及皮肤设置的共同结果。\n"
                    "NR 模型没有提供这些参数各自的独立遮罩；此处显示最终输出对原图的总变化。\n"
                    "开启后一次调整一个参数，观察变化；红色不代表模型识别出的皮肤区域。");
-
-        static const char* nrPresetNames[] = { "自动", "预设 1", "预设 2", "预设 3" };
-        int preset = (int) config->DlssNrPreset.value_or_default();
-        if (ImGui::Combo("NR 模型预设###Model preset", &preset, nrPresetNames, IM_ARRAYSIZE(nrPresetNames)))
-            config->DlssNrPreset = (uint32_t) preset;
-
-        HelpMarker("Default leaves the choice to the model."
-                       "\n\nNot the same scale as the super resolution or ray reconstruction presets --"
-                       "\nthe same number means something different here.");
 
         static const char* nrStyleNames[] = { "默认（标准）", "自然", "电影感" };
         int style = (int) config->DlssNrStyle.value_or_default();

@@ -115,14 +115,14 @@ static float half_to_float(uint16_t h) {
 int wmain(int argc, wchar_t** argv) {
     setvbuf(stdout, nullptr, _IONBF, 0);
     if (argc < 6) {
-        printf("Usage: %ls <_nvngx.dll> <dlssnr.dll> <width> <height> <preset> [warmup=5] [iters=20] [out.rgb32] [sky]\n", argv[0]);
+        printf("Usage: %ls <_nvngx.dll> <dlssnr.dll> <width> <height> <preset> [warmup=5] [iters=20] [out.rgb32] [sky] (preset 99: single-runtime switch test)\n", argv[0]);
         return 2;
     }
     const wchar_t* core_path = argv[1];
     const wchar_t* snip_path = argv[2];
     const unsigned W = unsigned(std::wcstoul(argv[3], nullptr, 10));
     const unsigned H = unsigned(std::wcstoul(argv[4], nullptr, 10));
-    const unsigned preset = unsigned(std::wcstoul(argv[5], nullptr, 10));
+    const unsigned requestedPreset = unsigned(std::wcstoul(argv[5], nullptr, 10));
     const unsigned warmup = argc > 6 ? unsigned(std::wcstoul(argv[6], nullptr, 10)) : 5;
     const unsigned iters = argc > 7 ? unsigned(std::wcstoul(argv[7], nullptr, 10)) : 20;
     const wchar_t* out_path = argc > 8 ? argv[8] : nullptr;
@@ -135,7 +135,7 @@ int wmain(int argc, wchar_t** argv) {
         DXGI_ADAPTER_DESC1 ad{};
         adapter->GetDesc1(&ad);
         if (ad.VendorId == 0x10de && SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&dev)))) {
-            wprintf(L"GPU=%ls (W=%u H=%u preset=%u warmup=%u iters=%u)\n", ad.Description, W, H, preset, warmup, iters);
+            wprintf(L"GPU=%ls (W=%u H=%u preset=%u warmup=%u iters=%u)\n", ad.Description, W, H, requestedPreset, warmup, iters);
             break;
         }
         adapter->Release();
@@ -236,7 +236,7 @@ int wmain(int argc, wchar_t** argv) {
     fc.PathListInfo.Path = paths;
     fc.PathListInfo.Length = 1;
     fc.LoggingInfo.LoggingCallback = log_cb;
-    fc.LoggingInfo.MinimumLoggingLevel = 3;
+    fc.LoggingInfo.MinimumLoggingLevel = 2;
 
     volatile auto r_init = snip_init(0x24480451ull, snip_dir.c_str(), dev, 0x15u, &fc);
     printf("SNIP_INIT=0x%08x\n", unsigned(r_init));
@@ -245,6 +245,18 @@ int wmain(int argc, wchar_t** argv) {
     volatile auto r_pop = snip_pop(p);
     printf("SNIP_POP=0x%08x\n", unsigned(r_pop));
 
+    // 99 exercises standard -> lightweight -> standard -> automatic in one loaded runtime.
+    const std::vector<unsigned> presets = requestedPreset == 99
+        ? std::vector<unsigned>{1, 2, 1, 0} : std::vector<unsigned>{requestedPreset};
+    std::vector<float> firstStandard;
+    std::vector<float> lightweight;
+    size_t totalNonfinite = 0;
+    unsigned cycle = 0;
+    for (unsigned preset : presets) {
+    if (cycle++ > 0) {
+        ck(al->Reset(), "switch allocator reset");
+        ck(l->Reset(al, nullptr), "switch command list reset");
+    }
     ngx_abi::SetUInt(p, "DLSSNR.Enabled", 1);
     ngx_abi::SetUInt(p, "DLSSNR.Width", W);
     ngx_abi::SetUInt(p, "DLSSNR.Height", H);
@@ -500,8 +512,18 @@ int wmain(int argc, wchar_t** argv) {
            nonfinite, sum / double(rgb.size()), min_v, max_v);
 
     volatile auto r_rel = snip_release(h);
+    if (r_rel != 1) return 14;
+    totalNonfinite += nonfinite;
+    if (requestedPreset == 99) {
+        if (cycle == 1) firstStandard = rgb;
+        if (cycle == 2) { lightweight = rgb; if (rgb == firstStandard) return 15; }
+        if (cycle == 3 && rgb != firstStandard) return 16;
+        if (cycle == 4 && rgb != lightweight) return 17;
+        if (GetModuleHandleW(snip_path) != snip) return 18;
+    }
+    }
     volatile auto r_shut = snip_shutdown(dev);
-    (void)r_rel;
-    (void)r_shut;
-    return nonfinite ? 13 : 0;
+    if (r_shut != 1) return 19;
+    if (requestedPreset == 99) printf("SINGLE_RUNTIME_SWITCH_PASS: 1 -> 2 -> 1 -> 0; standard restored, auto matches lightweight\n");
+    return totalNonfinite ? 13 : 0;
 }

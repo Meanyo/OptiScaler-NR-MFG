@@ -33,5 +33,4 @@ RTX 4080 SUPER、617.42 驱动：原模型 Preset 2 创建返回 `0xBAD00001`；
 已测试 720p Preset 0/2、1080p Preset 2，输出无 NaN/Inf。
 这是独立 D3D12 合成输入测试，不是游戏画面、时序稳定性或性能提升验证。
 
-模型仍使用常规文件名。采用目录隔离版插件时，放入
-`OptiScaler/NR-310.9.16/nvngx_dlssnr.dll`，桥接器保持 `nvngx.dll_dlssnr.dll`。
+R12.1 使用一份常规名 `nvngx_dlssnr.dll`，与 `nvngx.dll_dlssnr.dll` 放在插件或游戏主程序目录。通过 Preset 1/2 选择标准/轻量；旧版双目录布局只适用于 R12。

@@ -3,7 +3,7 @@
 #include <set>
 
 #include <dlssnr/DlssNr.h>
-#include <dlssnr/NrModelSelection.h>
+#include <dlssnr/NrModelFiles.h>
 
 
 #include <dlssnr/DlssNr_Capture.h>
@@ -170,7 +170,6 @@ using PFN_NrProbeFloat = void(__cdecl*) (void*, const char*, float, int);
 
 struct NrState
 {
-    unsigned int modelLibrary = ~0u;
     HMODULE forwarder = nullptr;
     PFN_NrCreate create = nullptr;
     PFN_NrEvaluate evaluate = nullptr;
@@ -186,7 +185,6 @@ struct NrState
     int* lastInit = nullptr;
     int* lastCreate = nullptr;
 
-    NVSDK_NGX_Parameter* modelParams[2] = {};
     NVSDK_NGX_Parameter* capabilityParams = nullptr;
     void* feature = nullptr;
 
@@ -482,19 +480,19 @@ bool EnsureForwarder()
 
     // Beside OptiScaler first, then beside the executable: someone dropping this into a game folder may
     // reasonably put it in either place.
-    auto found = DlssNr::FindModelFile(DlssNr::ModelForwarderName(), g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
+    auto found = DlssNr::FindNrFile("nvngx.dll_dlssnr.dll");
 
     if (!found.has_value())
     {
         LOG_ERROR("NR forwarder {} not found beside OptiScaler ({}) or the game executable",
-                  DlssNr::ModelForwarderName(g_nr.modelLibrary), g_dllDir.string());
+                  "nvngx.dll_dlssnr.dll", g_dllDir.string());
         g_nr.reason = "nvngx.dll_dlssnr.dll is missing";
         return false;
     }
 
     // FindFilePath hands back the file itself, not the directory holding it.
     const auto path = found.value();
-    g_nr.forwarder = DlssNr::LoadModelForwarder(path);
+    g_nr.forwarder = DlssNr::LoadNrForwarder(path);
 
     if (g_nr.forwarder == nullptr)
     {
@@ -586,7 +584,7 @@ void ReportScalingRatios()
     if (g_nr.queryRatio == nullptr || g_nr.capabilityParams == nullptr)
         return;
 
-    auto snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
+    auto snippet = DlssNr::FindNrModelFile();
 
     if (!snippet.has_value())
         return;
@@ -1661,29 +1659,6 @@ void DlssNr_Dx12::Dispatch(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* c
                               : static_cast<ID3D12CommandQueue*>(State::Instance().currentCommandQueue);
     g_nr.recordingList = cmdList;
 
-    const unsigned int requestedModel = DlssNr::SelectedModel();
-    if (g_nr.modelLibrary != requestedModel)
-    {
-        ParkNrFeature(g_nr.feature);
-        for (void*& feature : g_nr.passFeature)
-            ParkNrFeature(feature);
-        // Keep old modules loaded. Fence retirement uses each feature's original release entry.
-        if (g_nr.modelLibrary < 2)
-            g_nr.modelParams[g_nr.modelLibrary] = g_nr.capabilityParams;
-        g_nr.capabilityParams = g_nr.modelParams[requestedModel];
-        g_nr.forwarder = nullptr;
-        g_nr.create = nullptr;
-        g_nr.evaluate = nullptr;
-        g_nr.release = nullptr;
-        g_nr.floatSlotKnown = false;
-        g_nr.failed = false;
-        g_nr.reason = "";
-        g_nr.reset = true;
-        g_nr.pendingTuning = false;
-        g_nr.modelLibrary = requestedModel;
-        LOG_INFO("DLSS-NR runtime slot {} selected (rebuilding all layers)", g_nr.modelLibrary);
-    }
-
     if (g_nr.failed || cmdList == nullptr || colour == nullptr || depth == nullptr ||
         motion == nullptr || output == nullptr)
     {
@@ -1928,7 +1903,7 @@ void DlssNr_Dx12::Dispatch(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* c
     if (g_nr.feature == nullptr && g_nr.output != nullptr && g_nr.colorCopy != nullptr &&
         g_nr.hdrCopy != nullptr)
     {
-        auto snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
+        auto snippet = DlssNr::FindNrModelFile();
 
         if (!snippet.has_value())
         {
@@ -2000,9 +1975,7 @@ void DlssNr_Dx12::Dispatch(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* c
         if (g_nr.passFeature[pass] != nullptr)
             continue;
 
-        auto snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
-        if (!snippet.has_value())
-            snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
+        auto snippet = DlssNr::FindNrModelFile();
 
         if (!snippet.has_value())
         {
@@ -2913,7 +2886,7 @@ void ProbeD3D11(void* d3d11Device)
         return;
     }
 
-    auto snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
+    auto snippet = DlssNr::FindNrModelFile();
 
     if (!snippet.has_value())
         return;

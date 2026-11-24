@@ -3,7 +3,7 @@
 #include "DlssNrFeature_Vk.h"
 
 #include <Config.h>
-#include "NrModelSelection.h"
+#include "NrModelFiles.h"
 #include <State.h>
 #include <Util.h>
 #include <NVNGX_Parameter.h>
@@ -58,7 +58,7 @@ struct VkState
     bool failed = false;
     const char* reason = "";
 
-    unsigned int modelLibrary = ~0u;
+    unsigned int builtPreset = ~0u;
     HMODULE forwarder = nullptr;
     PFN_VkProbe probe = nullptr;
     PFN_VkInit init = nullptr;
@@ -413,7 +413,7 @@ bool LoadForwarder()
     if (g_vk.forwarder != nullptr)
         return g_vk.create != nullptr;
 
-    auto path = FindModelFile(ModelForwarderName(), g_vk.modelLibrary);
+    auto path = FindNrFile("nvngx.dll_dlssnr.dll");
 
     if (!path.has_value())
     {
@@ -421,7 +421,7 @@ bool LoadForwarder()
         return false;
     }
 
-    g_vk.forwarder = LoadModelForwarder(*path);
+    g_vk.forwarder = LoadNrForwarder(*path);
 
     if (g_vk.forwarder == nullptr)
     {
@@ -478,7 +478,7 @@ unsigned int GameCreateFlags(NVSDK_NGX_Parameter* params)
 
 std::optional<std::filesystem::path> FindSnippet()
 {
-    auto snippet = FindSelectedModel(g_vk.modelLibrary);
+    auto snippet = FindNrModelFile();
 
     return snippet;
 }
@@ -513,40 +513,6 @@ void EvaluateAfterUpscaleVk(VkCommandBuffer cmdBuffer, NVSDK_NGX_Parameter* para
 
     std::lock_guard<std::mutex> lock(g_vkMutex);
     g_vk.prepared = false;
-
-    const unsigned int requestedModel = SelectedModel();
-    if (g_vk.modelLibrary != requestedModel)
-    {
-        // Only release against the previous owning module after all device work has drained.
-        // A changed/dead device is handled by the existing abandonment path instead.
-        if (g_vk.device == device)
-        {
-            if (vkDeviceWaitIdle(device) != VK_SUCCESS)
-            {
-                Fail("the Vulkan device could not drain before switching NR models");
-                return;
-            }
-            if (g_vk.feature && g_vk.release)
-                g_vk.release(g_vk.feature);
-            g_vk.feature = nullptr;
-            for (void*& feature : g_vk.passFeature)
-            {
-                if (feature && g_vk.release)
-                    g_vk.release(feature);
-                feature = nullptr;
-            }
-        }
-        g_vk.forwarder = nullptr;
-        g_vk.create = nullptr;
-        g_vk.evaluate = nullptr;
-        g_vk.release = nullptr;
-        g_vk.ngxInitialised = false;
-        g_vk.failed = false;
-        g_vk.reason = "";
-        g_vk.reset = true;
-        g_vk.modelLibrary = requestedModel;
-        LOG_INFO("DLSS-NR Vulkan runtime slot {} selected", g_vk.modelLibrary);
-    }
 
     if (g_vk.failed)
         return;
@@ -786,6 +752,25 @@ void EvaluateAfterUpscaleVk(VkCommandBuffer cmdBuffer, NVSDK_NGX_Parameter* para
         g_vk.reset = true;
     }
 
+    const unsigned int requestedPreset = cfg.DlssNrPreset.value_or_default();
+    if (g_vk.feature && g_vk.builtPreset != requestedPreset)
+    {
+        if (vkDeviceWaitIdle(device) != VK_SUCCESS)
+        {
+            Fail("the Vulkan device could not drain before switching NR presets");
+            return;
+        }
+        g_vk.release(g_vk.feature);
+        g_vk.feature = nullptr;
+        for (void*& feature : g_vk.passFeature)
+        {
+            if (feature) g_vk.release(feature);
+            feature = nullptr;
+        }
+        g_vk.reset = true;
+        LOG_INFO("DLSS-NR Vulkan: rebuilding all layers for preset {} (single runtime)", requestedPreset);
+    }
+
     if (g_vk.feature == nullptr)
     {
         g_vk.feature = g_vk.create(
@@ -800,6 +785,7 @@ void EvaluateAfterUpscaleVk(VkCommandBuffer cmdBuffer, NVSDK_NGX_Parameter* para
             return;
         }
 
+        g_vk.builtPreset = requestedPreset;
         LOG_INFO("DLSS-NR Vulkan: feature up at {}x{} (frame {}x{})", workWidth, workHeight, width, height);
         g_vk.reset = true;
     }

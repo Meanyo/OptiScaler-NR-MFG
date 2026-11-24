@@ -49,8 +49,8 @@ NR 使用的 NVIDIA 模型 DLL 和 forwarder、DLSS SR / RR / FG、Streamline、
 
 本快照移除了 magic_enum、simpleini、spdlog、unordered_dense 的第三方示例/测试，以及未参与主工程编译的 imgui_demo.cpp（共 177 个文件）。依赖头文件、实现、静态库、许可证及本项目 tests/ 均保留。依赖的 CMake/Meson 默认配置已相应关闭被移除的示例/测试；如需运行第三方库自身测试，请从其原始项目取得完整源码。此次精简不改变 OptiScaler 的编译输入或游戏功能，也不改动已有 DLL、NVIDIA 模型及个人配置。
 
-## R12 输出与测试
+## R12.1 输出与测试
 
-构建还会输出 `build/OptiScaler-NR-MFG-R12.dll`（主 DLL 的版本命名副本），另有 `build/OptiScaler-NR-MFG-R12-directory.dll`、`build/nvngx.dll_dlssnr.dll` 和 `build/OptiScaler/NR-310.9.16/nvngx.dll_dlssnr.dll`。安装时按原注入方式重命名主 DLL，模型文件命名和运行中切换限制见 R12 使用说明。
+构建输出 `build/OptiScaler-NR-MFG-R12.1.dll`（主 DLL 的版本命名副本）和 `build/nvngx.dll_dlssnr.dll`。不再生成双目录转发库。安装时按原注入方式重命名主 DLL，见 R12.1 使用说明。
 
-`pwsh -File ./test-nr-runtime.ps1` 使用两份模拟模型验证真实转发库的 不同目录同名 DLL 的 D3D12/Vulkan 隔离、切回与旧实例释放，不初始化 NVIDIA 模型或 GPU。
+`pwsh -File ./test-nr-preset.ps1 -ModelPath <新版Ada模型绝对路径> -ToolchainRoot <VS安装目录>` 在真实 D3D12 GPU 上保持同一个模型模块和参数块，依次创建、执行、释放 Preset 1→2→1→0；检查全部输出有限、标准/轻量不同、切回标准输出相同、自动档匹配当前新版的轻量默认值。该测试不替代游戏内热切换和帧生成组合测试。

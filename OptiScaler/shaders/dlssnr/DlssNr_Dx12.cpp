@@ -3,6 +3,7 @@
 #include <set>
 
 #include <dlssnr/DlssNr.h>
+#include <dlssnr/NrModelSelection.h>
 
 
 #include <dlssnr/DlssNr_Capture.h>
@@ -169,6 +170,7 @@ using PFN_NrProbeFloat = void(__cdecl*) (void*, const char*, float, int);
 
 struct NrState
 {
+    unsigned int modelLibrary = ~0u;
     HMODULE forwarder = nullptr;
     PFN_NrCreate create = nullptr;
     PFN_NrEvaluate evaluate = nullptr;
@@ -184,6 +186,7 @@ struct NrState
     int* lastInit = nullptr;
     int* lastCreate = nullptr;
 
+    NVSDK_NGX_Parameter* modelParams[2] = {};
     NVSDK_NGX_Parameter* capabilityParams = nullptr;
     void* feature = nullptr;
 
@@ -479,22 +482,21 @@ bool EnsureForwarder()
 
     // Beside OptiScaler first, then beside the executable: someone dropping this into a game folder may
     // reasonably put it in either place.
-    auto found = Util::FindFilePath(g_dllDir, "nvngx.dll_dlssnr.dll");
-
-    if (!found.has_value())
-        found = Util::FindFilePath(Util::ExePath().remove_filename(), "nvngx.dll_dlssnr.dll");
+    auto found = DlssNr::FindModelFile(DlssNr::ModelForwarderName(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel()));
 
     if (!found.has_value())
     {
-        LOG_ERROR("nvngx.dll_dlssnr.dll not found beside OptiScaler ({}) or the game executable",
-                  g_dllDir.string());
+        LOG_ERROR("NR forwarder {} not found beside OptiScaler ({}) or the game executable",
+                  DlssNr::ModelForwarderName(g_nr.modelLibrary), g_dllDir.string());
         g_nr.reason = "nvngx.dll_dlssnr.dll is missing";
         return false;
     }
 
     // FindFilePath hands back the file itself, not the directory holding it.
     const auto path = found.value();
-    g_nr.forwarder = LoadLibraryW(path.wstring().c_str());
+    g_nr.forwarder = GetModuleHandleW(path.wstring().c_str());
+    if (!g_nr.forwarder)
+        g_nr.forwarder = LoadLibraryW(path.wstring().c_str());
 
     if (g_nr.forwarder == nullptr)
     {
@@ -518,7 +520,7 @@ bool EnsureForwarder()
     g_nr.lastInit = (int*) GetProcAddress(g_nr.forwarder, "dlssnr_call_last_init");
     g_nr.lastCreate = (int*) GetProcAddress(g_nr.forwarder, "dlssnr_call_last_create");
 
-    if (g_nr.create == nullptr || g_nr.evaluate == nullptr)
+    if (g_nr.create == nullptr || g_nr.evaluate == nullptr || g_nr.release == nullptr)
     {
         g_nr.reason = "the forwarder is missing its exports";
         return false;
@@ -536,7 +538,10 @@ void ReportScalingRatios();
 bool EnsureCapabilityParams(ID3D12Device* device)
 {
     if (g_nr.capabilityParams != nullptr)
+    {
+        DiscoverFloatSlot(g_nr.capabilityParams);
         return true;
+    }
 
     if (!NVNGXProxy::IsDx12Inited() && !NVNGXProxy::InitDx12(device))
     {
@@ -583,10 +588,7 @@ void ReportScalingRatios()
     if (g_nr.queryRatio == nullptr || g_nr.capabilityParams == nullptr)
         return;
 
-    auto snippet = Util::FindFilePath(g_dllDir, "nvngx_dlssnr.dll");
-
-    if (!snippet.has_value())
-        snippet = Util::FindFilePath(Util::ExePath().remove_filename(), "nvngx_dlssnr.dll");
+    auto snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
 
     if (!snippet.has_value())
         return;
@@ -674,6 +676,7 @@ void DiscoverFloatSlot(NVSDK_NGX_Parameter* params)
 struct NrRetired
 {
     void* feature = nullptr;
+    PFN_NrRelease release = nullptr;
     ID3D12Resource* resource = nullptr;
     ID3D12CommandQueue* queue = nullptr; // owned by the queue tracker once submitted
     ID3D12CommandList* commandList = nullptr; // identity only; owned by the game until submission
@@ -697,6 +700,7 @@ void ParkNrFeature(void*& feature)
 
     NrRetired r;
     r.feature = feature;
+    r.release = g_nr.release;
     r.queue = g_nr.recordingQueue;
     r.commandList = g_nr.recordingList;
     feature = nullptr;
@@ -730,8 +734,8 @@ void CollectNrRetired()
             continue;
         }
 
-        if (retired.feature != nullptr && g_nr.release != nullptr)
-            g_nr.release(retired.feature);
+        if (retired.feature != nullptr && retired.release != nullptr)
+            retired.release(retired.feature);
 
         if (retired.resource != nullptr)
             retired.resource->Release();
@@ -1659,6 +1663,29 @@ void DlssNr_Dx12::Dispatch(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* c
                               : static_cast<ID3D12CommandQueue*>(State::Instance().currentCommandQueue);
     g_nr.recordingList = cmdList;
 
+    const unsigned int requestedModel = DlssNr::SelectedModel();
+    if (g_nr.modelLibrary != requestedModel)
+    {
+        ParkNrFeature(g_nr.feature);
+        for (void*& feature : g_nr.passFeature)
+            ParkNrFeature(feature);
+        // Keep old modules loaded. Fence retirement uses each feature's original release entry.
+        if (g_nr.modelLibrary < 2)
+            g_nr.modelParams[g_nr.modelLibrary] = g_nr.capabilityParams;
+        g_nr.capabilityParams = g_nr.modelParams[requestedModel];
+        g_nr.forwarder = nullptr;
+        g_nr.create = nullptr;
+        g_nr.evaluate = nullptr;
+        g_nr.release = nullptr;
+        g_nr.floatSlotKnown = false;
+        g_nr.failed = false;
+        g_nr.reason = "";
+        g_nr.reset = true;
+        g_nr.pendingTuning = false;
+        g_nr.modelLibrary = requestedModel;
+        LOG_INFO("DLSS-NR runtime selected: {} (rebuilding all layers)", DlssNr::ModelFileName(g_nr.modelLibrary));
+    }
+
     if (g_nr.failed || cmdList == nullptr || colour == nullptr || depth == nullptr ||
         motion == nullptr || output == nullptr)
     {
@@ -1903,15 +1930,12 @@ void DlssNr_Dx12::Dispatch(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* c
     if (g_nr.feature == nullptr && g_nr.output != nullptr && g_nr.colorCopy != nullptr &&
         g_nr.hdrCopy != nullptr)
     {
-        auto snippet = Util::FindFilePath(g_dllDir, "nvngx_dlssnr.dll");
-
-        if (!snippet.has_value())
-            snippet = Util::FindFilePath(Util::ExePath().remove_filename(), "nvngx_dlssnr.dll");
+        auto snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
 
         if (!snippet.has_value())
         {
             g_nr.failed = true;
-            g_nr.reason = "nvngx_dlssnr.dll was not found beside OptiScaler or the game";
+            g_nr.reason = "the selected NR model file was not found beside OptiScaler or the game";
             LOG_ERROR("DLSS-NR unavailable: {}", g_nr.reason);
             Barrier(cmdList, target, targetWorking, targetArrival);
             device->Release();
@@ -1978,14 +2002,14 @@ void DlssNr_Dx12::Dispatch(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* c
         if (g_nr.passFeature[pass] != nullptr)
             continue;
 
-        auto snippet = Util::FindFilePath(g_dllDir, "nvngx_dlssnr.dll");
+        auto snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
         if (!snippet.has_value())
-            snippet = Util::FindFilePath(Util::ExePath().remove_filename(), "nvngx_dlssnr.dll");
+            snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
 
         if (!snippet.has_value())
         {
             g_nr.failed = true;
-            g_nr.reason = "nvngx_dlssnr.dll was not found while creating an NR layer";
+            g_nr.reason = "the selected NR model file was not found while creating an NR layer";
             Barrier(cmdList, target, targetWorking, targetArrival);
             device->Release();
             return;
@@ -2891,10 +2915,7 @@ void ProbeD3D11(void* d3d11Device)
         return;
     }
 
-    auto snippet = Util::FindFilePath(g_dllDir, "nvngx_dlssnr.dll");
-
-    if (!snippet.has_value())
-        snippet = Util::FindFilePath(Util::ExePath().remove_filename(), "nvngx_dlssnr.dll");
+    auto snippet = DlssNr::FindSelectedModel(g_nr.modelLibrary < 2 ? g_nr.modelLibrary : DlssNr::SelectedModel());
 
     if (!snippet.has_value())
         return;
@@ -3030,8 +3051,8 @@ void Shutdown()
 
     for (auto& r : g_nrRetired)
     {
-        if (r.feature != nullptr && g_nr.release != nullptr)
-            g_nr.release(r.feature);
+        if (r.feature != nullptr && r.release != nullptr)
+            r.release(r.feature);
 
         if (r.resource != nullptr)
             r.resource->Release();

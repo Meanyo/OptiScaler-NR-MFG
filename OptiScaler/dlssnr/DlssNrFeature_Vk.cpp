@@ -3,6 +3,7 @@
 #include "DlssNrFeature_Vk.h"
 
 #include <Config.h>
+#include "NrModelSelection.h"
 #include <State.h>
 #include <Util.h>
 #include <NVNGX_Parameter.h>
@@ -57,6 +58,7 @@ struct VkState
     bool failed = false;
     const char* reason = "";
 
+    unsigned int modelLibrary = ~0u;
     HMODULE forwarder = nullptr;
     PFN_VkProbe probe = nullptr;
     PFN_VkInit init = nullptr;
@@ -411,10 +413,7 @@ bool LoadForwarder()
     if (g_vk.forwarder != nullptr)
         return g_vk.create != nullptr;
 
-    auto path = Util::FindFilePath(Util::DllPath().remove_filename(), "nvngx.dll_dlssnr.dll");
-
-    if (!path.has_value())
-        path = Util::FindFilePath(Util::ExePath().remove_filename(), "nvngx.dll_dlssnr.dll");
+    auto path = FindModelFile(ModelForwarderName(g_vk.modelLibrary));
 
     if (!path.has_value())
     {
@@ -422,7 +421,9 @@ bool LoadForwarder()
         return false;
     }
 
-    g_vk.forwarder = LoadLibraryW(path->wstring().c_str());
+    g_vk.forwarder = GetModuleHandleW(path->wstring().c_str());
+    if (!g_vk.forwarder)
+        g_vk.forwarder = LoadLibraryW(path->wstring().c_str());
 
     if (g_vk.forwarder == nullptr)
     {
@@ -436,7 +437,7 @@ bool LoadForwarder()
     g_vk.evaluate = (PFN_VkEvaluate) GetProcAddress(g_vk.forwarder, "dlssnr_vk_evaluate");
     g_vk.release = (PFN_VkRelease) GetProcAddress(g_vk.forwarder, "dlssnr_vk_release");
 
-    if (g_vk.init == nullptr || g_vk.create == nullptr || g_vk.evaluate == nullptr)
+    if (g_vk.init == nullptr || g_vk.create == nullptr || g_vk.evaluate == nullptr || g_vk.release == nullptr)
     {
         Fail("the forwarder is missing its Vulkan entry points");
         return false;
@@ -479,10 +480,7 @@ unsigned int GameCreateFlags(NVSDK_NGX_Parameter* params)
 
 std::optional<std::filesystem::path> FindSnippet()
 {
-    auto snippet = Util::FindFilePath(Util::DllPath().remove_filename(), "nvngx_dlssnr.dll");
-
-    if (!snippet.has_value())
-        snippet = Util::FindFilePath(Util::ExePath().remove_filename(), "nvngx_dlssnr.dll");
+    auto snippet = FindSelectedModel(g_vk.modelLibrary);
 
     return snippet;
 }
@@ -517,6 +515,40 @@ void EvaluateAfterUpscaleVk(VkCommandBuffer cmdBuffer, NVSDK_NGX_Parameter* para
 
     std::lock_guard<std::mutex> lock(g_vkMutex);
     g_vk.prepared = false;
+
+    const unsigned int requestedModel = SelectedModel();
+    if (g_vk.modelLibrary != requestedModel)
+    {
+        // Only release against the previous owning module after all device work has drained.
+        // A changed/dead device is handled by the existing abandonment path instead.
+        if (g_vk.device == device)
+        {
+            if (vkDeviceWaitIdle(device) != VK_SUCCESS)
+            {
+                Fail("the Vulkan device could not drain before switching NR models");
+                return;
+            }
+            if (g_vk.feature && g_vk.release)
+                g_vk.release(g_vk.feature);
+            g_vk.feature = nullptr;
+            for (void*& feature : g_vk.passFeature)
+            {
+                if (feature && g_vk.release)
+                    g_vk.release(feature);
+                feature = nullptr;
+            }
+        }
+        g_vk.forwarder = nullptr;
+        g_vk.create = nullptr;
+        g_vk.evaluate = nullptr;
+        g_vk.release = nullptr;
+        g_vk.ngxInitialised = false;
+        g_vk.failed = false;
+        g_vk.reason = "";
+        g_vk.reset = true;
+        g_vk.modelLibrary = requestedModel;
+        LOG_INFO("DLSS-NR Vulkan runtime selected: {}", ModelFileName(g_vk.modelLibrary));
+    }
 
     if (g_vk.failed)
         return;
@@ -618,7 +650,7 @@ void EvaluateAfterUpscaleVk(VkCommandBuffer cmdBuffer, NVSDK_NGX_Parameter* para
 
         if (!snippet.has_value())
         {
-            Fail("nvngx_dlssnr.dll was not found beside OptiScaler or the game");
+            Fail("the selected NR model file was not found beside OptiScaler or the game");
             return;
         }
 

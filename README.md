@@ -2,11 +2,12 @@
 
 基于 OptiScaler 的非官方增强分支：NR 神经渲染、NR↔SR 顺序切换、串行多层 NR、RTX 40 系多帧生成，以及中文设置界面。
 
-当前源码快照：**R11**（`0.2.0-order-cn-r11` / `20261016_R11`）。本仓库以现有本地 R11 源码建立，未包含完整上游 Git 提交历史。详细来源见 [SOURCE_ORIGINS.md](SOURCE_ORIGINS.md)，原上游介绍保留在 [README.upstream.md](README.upstream.md)。
+当前源码版本：**R12**（`0.2.0-order-cn-r12` / `20261124_R12`）。本仓库以现有本地 R11 源码建立，未包含完整上游 Git 提交历史。详细来源见 [SOURCE_ORIGINS.md](SOURCE_ORIGINS.md)，原上游介绍保留在 [README.upstream.md](README.upstream.md)。
 
 ## 功能
 
 - NR → SR / SR → NR 处理顺序选择。
+- NR 默认运行库 / 310.9.16 文件切换：可在启用前选择或运行中重建切换，独立转发库隔离加载状态。
 - 1–6 层真实串行 NR；每层复用第一层参数，各自维护模型实例。
 - RTX 40（Ada）兼容 DLSS-G 运行库的 2X–6X 倍率解锁与时序中点修复。
 - DLSS-G 默认 / A / B / C 模型选择，独立于超分模型和插帧倍率；修改后保存并重启游戏。
@@ -16,6 +17,7 @@
 
 ## 使用与构建
 
+- [R12 模型切换与安装说明](R12-使用说明.txt)
 - [R11 使用说明](R11-使用说明.txt)：安装目录、模型选择、日志和已知限制。
 - [构建说明](BUILDING.md)：Windows x64 Release 构建。
 - [配置示例](OptiScaler.ini)：保留自己的配置，不要直接覆盖。

@@ -2,6 +2,7 @@
 #include "DlssNrFeature_Vk.h"
 
 #include "DlssNr.h"
+#include "NrModelSelection.h"
 #include "DlssNr_ExposureScan.h"
 
 
@@ -24,7 +25,7 @@ static const char* LocalizedHelp(const char* tip)
 {
     struct Entry { const char* starts; const char* zh; };
     static const Entry entries[] = {
-        { "Synthesises detail", "利用神经模型合成细节，并在帧生成之前完成处理。需要游戏目录中的 nvngx_dlssnr.dll 与随包提供的 nvngx.dll_dlssnr.dll。此功能为非官方实验集成。" },
+        { "Synthesises detail", "利用神经模型合成细节，并在帧生成之前完成处理。需要所选 NR 模型文件及其配套转发库，文件名见运行库版本选项。此功能为非官方实验集成。" },
         { "Whether the model's edit", "控制是否把模型修改合成到画面。关闭时模型仍会运行，适合配合“冻结 NR 输入帧”进行同一帧对比；正常使用请开启。" },
         { "The whole pass", "这里统计完整 NR 流程的耗时，包括颜色转换、模型执行和合成。可与窗口底部帧时间对照判断性能开销。" },
         { "The filter that averages", "把超采样模型结果缩小到显示分辨率。Lanczos3、Kaiser3 较锐利；Bicubic、Catmull-Rom 更柔和。它与输出缩放滤镜互相独立。" },
@@ -148,6 +149,17 @@ void RenderMenu(Config* config, float menuResScale)
                        "\n  nvngx_dlssnr.dll       NVIDIA's model (~165 MB) -- you supply it"
                        "\n  nvngx.dll_dlssnr.dll   the forwarder (~13 KB) -- ships in this package"
                        "\nUndocumented and driven directly, so none of this is officially supported.");
+
+        int library = (int) SelectedModel();
+        static const char* libraries[] = { "默认文件 / 旧版 NR", "新版 NR 310.9.16" };
+        if (ImGui::Combo("NR 运行库版本###NR model library", &library, libraries, IM_ARRAYSIZE(libraries)))
+            config->DlssNrModelLibrary = (unsigned int) library;
+        HelpMarker("这是两份独立的 NR 运行库，不是下方的模型预设。可在启用 NR 前选择，也可运行中切换；切换在下一次 NR 执行时重建全部 NR 层并重置历史，可能短暂停顿。旧模块暂不卸载，以保护在途 GPU 工作。保存设置可记住选择。");
+        ImGui::TextWrapped("模型文件：%s", ModelFileName());
+        if (!FindSelectedModel())
+            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.25f, 1.0f), "未找到所选模型，请放在插件或游戏目录中。");
+        if (!FindModelFile(ModelForwarderName()))
+            ImGui::TextWrapped("缺少配套转发库：%s", ModelForwarderName());
 
         int order = config->DlssNrAfterUpscale.value_or_default() ? 1 : 0;
         static const char* orderNames[] = {

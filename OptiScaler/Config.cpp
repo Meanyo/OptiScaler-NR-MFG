@@ -322,6 +322,7 @@ bool Config::Reload(std::filesystem::path iniPath)
 
             // --- DLSS 5 Neural Rendering (OptiScaler/dlssnr) ---
             DlssNrEnabled.set_from_config(readBool("DlssNr", "Enabled"));
+            DlssNrModelLibrary.set_from_config(readUInt("DlssNr", "ModelLibrary"));
             DlssNrAfterUpscale.set_from_config(readBool("DlssNr", "AfterUpscale"));
             DlssNrToggleKey.set_from_config(readInt("DlssNr", "ToggleKey"));
             DlssNrTransferStrength.set_from_config(readFloat("DlssNr", "TransferStrength"));
@@ -1214,6 +1215,7 @@ bool Config::SaveIni()
 
     // --- DLSS 5 Neural Rendering (OptiScaler/dlssnr) ---
     ini.SetValue("DlssNr", "Enabled", GetBoolValue(Instance()->DlssNrEnabled.value_for_config()).c_str());
+    ini.SetValue("DlssNr", "ModelLibrary", GetIntValue(Instance()->DlssNrModelLibrary.value_for_config()).c_str());
     ini.SetValue("DlssNr", "AfterUpscale", GetBoolValue(Instance()->DlssNrAfterUpscale.value_for_config()).c_str());
     {
         auto toggle = Instance()->DlssNrToggleKey.value_for_config();

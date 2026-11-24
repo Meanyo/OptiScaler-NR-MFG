@@ -28,5 +28,5 @@ project('unordered_dense', 'cpp',
     ])
 
 incdir = include_directories('include')
-subdir('test')
+# Dependency tests are omitted from the OptiScaler source snapshot.
 

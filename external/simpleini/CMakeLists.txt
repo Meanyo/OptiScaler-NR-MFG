@@ -58,7 +58,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 )
 
 # only build tests when top level and testing enabled
-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
 	include(CTest)
 	if(BUILD_TESTING)
 		add_subdirectory(tests)

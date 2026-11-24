@@ -1,7 +1,7 @@
 option(
     'test',
     type : 'boolean',
-    value : true,
+    value : false,
     description : 'Build and run tests'
 )
 

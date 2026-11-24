@@ -64,7 +64,7 @@ option(SPDLOG_ENABLE_PCH "Build static or shared library using precompiled heade
 option(SPDLOG_BUILD_PIC "Build position independent code (-fPIC)" OFF)
 
 # example options
-option(SPDLOG_BUILD_EXAMPLE "Build example" ${SPDLOG_MASTER_PROJECT})
+option(SPDLOG_BUILD_EXAMPLE "Build example (omitted from this snapshot)" OFF)
 option(SPDLOG_BUILD_EXAMPLE_HO "Build header only example" OFF)
 
 # testing options

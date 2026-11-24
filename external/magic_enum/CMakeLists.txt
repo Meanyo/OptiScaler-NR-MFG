@@ -21,8 +21,8 @@ else()
   set(IS_TOPLEVEL_PROJECT FALSE)
 endif()
 
-option(MAGIC_ENUM_OPT_BUILD_EXAMPLES "Build magic_enum examples" ${IS_TOPLEVEL_PROJECT})
-option(MAGIC_ENUM_OPT_BUILD_TESTS "Build and perform magic_enum tests" ${IS_TOPLEVEL_PROJECT})
+option(MAGIC_ENUM_OPT_BUILD_EXAMPLES "Build magic_enum examples (omitted from this snapshot)" OFF)
+option(MAGIC_ENUM_OPT_BUILD_TESTS "Build and perform magic_enum tests (omitted from this snapshot)" OFF)
 option(MAGIC_ENUM_OPT_INSTALL "Generate and install magic_enum target" ${IS_TOPLEVEL_PROJECT})
 option(MAGIC_ENUM_OPT_INSTALL_PACKAGE_XML "Include package.xml when installing"
        ${MAGIC_ENUM_OPT_INSTALL}

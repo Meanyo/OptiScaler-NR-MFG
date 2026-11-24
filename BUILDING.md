@@ -44,3 +44,7 @@ pwsh -File ./test-provider.ps1 -Providers 'D:\runtime\nvngx_dlssg.dll'
 NR 使用的 NVIDIA 模型 DLL 和 forwarder、DLSS SR / RR / FG、Streamline、XeSS / FSR 运行库需要按所用功能另外准备。NR forwarder 工程位于 `OptiScaler/dlssnr/forwarder`，不由根目录 `build.ps1` 自动编译。不要把个人游戏目录或 NVIDIA 缓存目录提交到仓库。
 
 原有 `package_release.ps1` 为上游历史打包脚本，默认路径和版本不适合作为本分支 R11 发布流程；发布前请按本分支说明单独整理输出。
+
+## 源码精简范围
+
+本快照移除了 magic_enum、simpleini、spdlog、unordered_dense 的第三方示例/测试，以及未参与主工程编译的 imgui_demo.cpp（共 177 个文件）。依赖头文件、实现、静态库、许可证及本项目 tests/ 均保留。依赖的 CMake/Meson 默认配置已相应关闭被移除的示例/测试；如需运行第三方库自身测试，请从其原始项目取得完整源码。此次精简不改变 OptiScaler 的编译输入或游戏功能，也不改动已有 DLL、NVIDIA 模型及个人配置。

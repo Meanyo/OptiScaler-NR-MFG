@@ -27,7 +27,7 @@ Windows 文件版本仍为 10.0.0.12。
 D3D12 旧实例通过 Fence 回收，释放调用仍使用创建它的桥接器。
 
 三、当前验证边界
-目录隔离解决的是文件选择和加载方式，不能据此保证 310.9.16 在 RTX 4080 SUPER 上创建成功。
-此前 FF14 日志中新版 init 成功而 CreateFeature 返回 FAIL_FeatureNotSupported；需用本版本重新测试后确认该返回码是否改变。
+目录隔离解决文件选择和加载方式；RTX40 使用新版时应另装 Ada 原生 FP8 模型补丁。
+未经适配的原始 310.9.16 在当前 RTX4080 SUPER 上创建返回 FAIL_FeatureNotSupported；Ada 补丁已通过独立 D3D12 创建/执行验证，尚未完成游戏实测。
 测试前完全退出游戏，保留个人 OptiScaler.ini 和其他运行依赖。
-诊断包不包含 NVIDIA 模型。已按用户要求在 FF14 的 OptiScaler/NR-310.9.16 中复制原版桥接器和本地新版模型；原文件保持不变。
+Release 的 R12 主包包含非 NR 的 DLSS SR/RR/FG 等文件；NR 另分为旧版 310.8 和新版 Ada FP8 两个模型包。先装主包，再按需安装 NR 分包；详见 tools/ada_nr/VALIDATION.md。

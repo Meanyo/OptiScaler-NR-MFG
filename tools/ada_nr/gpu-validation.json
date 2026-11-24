@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-24",
+  "gpu": "RTX 4080 SUPER",
+  "driver": "617.42",
+  "source_sha256": "2BC19BC09A7B89DD44F73E2AC0108FCC586E2154BDD0830F242F4F040E28789F",
+  "output_sha256": "ED4B4164BDFDE6268A3C896AAD5E340CB66646D5E93E0AA4FF02583E7D684274",
+  "target": "sm_89",
+  "fatbin_modules": 15,
+  "native_fp8_ptx_lines_preserved": 49208,
+  "native_fp8_qmma": 19952,
+  "original_create_result": "0xBAD00001",
+  "checks": [
+    {
+      "summary": "SUMMARY W=1280 H=720 preset=2 gpu_median_ms=1.815 gpu_mean_ms=1.811 gpu_min_ms=1.801 wall_median_ms=2.106 wall_mean_ms=2.108 wall_min_ms=2.093 nonfinite=0 mean_rgb=0.426097 range=[0.0633, 0.7271]",
+      "create_success": true
+    },
+    {
+      "summary": "SUMMARY W=1280 H=720 preset=0 gpu_median_ms=1.821 gpu_mean_ms=1.861 gpu_min_ms=1.802 wall_median_ms=2.114 wall_mean_ms=2.149 wall_min_ms=2.063 nonfinite=0 mean_rgb=0.425973 range=[0.0573, 0.7280]",
+      "create_success": true
+    },
+    {
+      "summary": "SUMMARY W=1920 H=1080 preset=2 gpu_median_ms=2.714 gpu_mean_ms=2.731 gpu_min_ms=2.690 wall_median_ms=3.009 wall_mean_ms=3.028 wall_min_ms=2.949 nonfinite=0 mean_rgb=0.426076 range=[0.0560, 0.7261]",
+      "create_success": true
+    }
+  ],
+  "game_tested": false
+}

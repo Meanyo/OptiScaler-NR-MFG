@@ -8,6 +8,7 @@
 
 - NR → SR / SR → NR 处理顺序选择。
 - NR 默认运行库 / 310.9.16 文件切换：可在启用前选择或运行中重建切换，新版目录 `OptiScaler/NR-310.9.16` 内使用常规 DLL 文件名，按绝对路径隔离加载状态。
+- RTX 40 / Ada 的 310.9.16 原生 FP8 模型补丁与可复现构建、审计源码，见 [支持与验证记录](tools/ada_nr/VALIDATION.md)。
 - 1–6 层真实串行 NR；每层复用第一层参数，各自维护模型实例。
 - RTX 40（Ada）兼容 DLSS-G 运行库的 2X–6X 倍率解锁与时序中点修复。
 - DLSS-G 默认 / A / B / C 模型选择，独立于超分模型和插帧倍率；修改后保存并重启游戏。
@@ -23,7 +24,7 @@
 - [配置示例](OptiScaler.ini)：保留自己的配置，不要直接覆盖。
 - [NR 特效保护](EFFECT_PROTECTION_CN.md)、[调整预览](ADJUSTMENT_PREVIEW_CN.md)。
 
-本仓库不附带 NVIDIA DLSS / NR / FG / Streamline 运行库，也不包含编译输出。所需运行库由用户按原厂许可自行取得；不能仅靠编译本项目获得 NVIDIA 模型。
+Git 源码不包含 NVIDIA 模型或编译输出；Release 按主包、旧 NR、新版 Ada NR 三包发布。R12 主包包含非 NR 的 DLSS SR/RR/FG 等配套文件；NR 模型按需另装。运行库与模型沿用各自原厂许可；编译插件本身不会生成 NVIDIA 模型。
 
 游戏原生 DLSSG 输入需要游戏实际提交帧生成数据；仅启用超分不等于启用了帧生成。模型选择与倍率解锁不保证某个游戏必然支持或稳定。
 
